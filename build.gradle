@@ -1,0 +1,35 @@
+plugins {
+    id 'java'
+}
+
+repositories {
+    maven {
+        url = 'https://repo.runelite.net'
+        content { includeGroupByRegex('net\\.runelite.*') }
+    }
+    mavenCentral()
+}
+
+def runeLiteVersion = 'latest.release'
+
+dependencies {
+    compileOnly "net.runelite:client:${runeLiteVersion}"
+    testImplementation "net.runelite:client:${runeLiteVersion}"
+    testRuntimeOnly "net.runelite:jshell:${runeLiteVersion}"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.release.set(11)
+}
+
+tasks.register('run', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.cozygielinor.runelite.CozyGielinorLauncher'
+    systemProperty 'user.home', layout.buildDirectory.dir('runelite-home').get().asFile.absolutePath
+    jvmArgs '-ea'
+    args '--developer-mode', '--disable-telemetry'
+    doFirst {
+        layout.buildDirectory.dir('runelite-home').get().asFile.mkdirs()
+    }
+}
