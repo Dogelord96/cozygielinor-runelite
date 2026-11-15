@@ -41,6 +41,8 @@ final class CozyGielinorPanel extends PluginPanel
     private static final Color ACCENT = new Color(0xE4C17A);
 
     private static final String PORTAL = "https://home.cozygielinor.net";
+    private static final String PORTAL_NOTICE = "Requests expose your IP address to the CozyGielinor portal, "
+        + "which is operated separately from RuneLite.";
 
     private final JLabel activeAccount = label("OSRS account: signed out", 11, Font.PLAIN, MUTED);
     private final JLabel clanRank = label("Log in to view your clan rank", 11, Font.BOLD, ACCENT);
@@ -99,7 +101,9 @@ final class CozyGielinorPanel extends PluginPanel
         pair.addActionListener(event ->
         {
             LinkBrowser.browse(PortalPairing.ORIGIN + "/runelite-pairing");
-            String input = JOptionPane.showInputDialog(this, "Paste your one-time pairing code");
+            String input = JOptionPane.showInputDialog(this,
+                "Pairing shares your character's quest, diary and music progress with the CozyGielinor portal.\n"
+                    + PORTAL_NOTICE + "\nPaste your one-time pairing code:");
             if (input == null || input.isBlank())
             {
                 return;
@@ -117,11 +121,11 @@ final class CozyGielinorPanel extends PluginPanel
         pinned.add(pair);
         JCheckBox relay = new JCheckBox("Share my clan chat with Discord");
         relay.setAlignmentX(Component.LEFT_ALIGNMENT);
-        relay.addActionListener(event -> pairing.setRelayEnabled(false, relay.isSelected()));
+        relay.addActionListener(event -> setRelayPreference(relay, false));
         pinned.add(relay);
         JCheckBox leadershipRelay = new JCheckBox("Share my leadership chat with Discord");
         leadershipRelay.setAlignmentX(Component.LEFT_ALIGNMENT);
-        leadershipRelay.addActionListener(event -> pairing.setRelayEnabled(true, leadershipRelay.isSelected()));
+        leadershipRelay.addActionListener(event -> setRelayPreference(leadershipRelay, true));
         pinned.add(leadershipRelay);
         pinned.setBorder(new EmptyBorder(0, 0, 5, 0));
         add(pinned, BorderLayout.NORTH);
@@ -134,6 +138,19 @@ final class CozyGielinorPanel extends PluginPanel
         scroll.getVerticalScrollBar().setUnitIncrement(16);
         add(scroll, BorderLayout.CENTER);
         renderPortal(null, "Log in to load your portal data.");
+    }
+
+    private void setRelayPreference(JCheckBox checkbox, boolean leadership)
+    {
+        if (checkbox.isSelected())
+        {
+            String channel = leadership ? "leadership chat" : "clan chat";
+            int answer = JOptionPane.showConfirmDialog(this,
+                "Your own " + channel + " messages and character name will be shared with the clan's Discord channel.\n"
+                    + PORTAL_NOTICE, "Enable Discord relay", JOptionPane.OK_CANCEL_OPTION);
+            checkbox.setSelected(answer == JOptionPane.OK_OPTION);
+        }
+        pairing.setRelayEnabled(leadership, checkbox.isSelected());
     }
 
     void setRelayStatus(String status)
