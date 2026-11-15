@@ -21,6 +21,7 @@ import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
@@ -56,7 +57,7 @@ final class CozyGielinorPanel extends PluginPanel
     private String character;
     private long requestVersion;
 
-    CozyGielinorPanel(BridgeHttp http, Gson gson)
+    CozyGielinorPanel(BridgeHttp http, Gson gson, PortalPairing pairing)
     {
         super(false);
         this.http = http;
@@ -92,6 +93,26 @@ final class CozyGielinorPanel extends PluginPanel
         joinDiscord.addActionListener(event -> LinkBrowser.browse("https://cozygielinor.net/discord"));
         joinDiscord.setVisible(false);
         pinned.add(joinDiscord);
+        JButton pair = new JButton("Pair account");
+        pair.setAlignmentX(Component.LEFT_ALIGNMENT);
+        pair.addActionListener(event ->
+        {
+            LinkBrowser.browse(PortalPairing.ORIGIN + "/runelite-pairing");
+            String input = JOptionPane.showInputDialog(this, "Paste your one-time pairing code");
+            if (input == null || input.isBlank())
+            {
+                return;
+            }
+            pair.setEnabled(false);
+            pairing.exchange(input.strip(), accepted -> SwingUtilities.invokeLater(() ->
+            {
+                pair.setEnabled(true);
+                JOptionPane.showMessageDialog(this, accepted
+                    ? "Paired. Account progress will sync when the linked character is active."
+                    : "Pairing failed. Generate a new code and try again.");
+            }));
+        });
+        pinned.add(pair);
         pinned.setBorder(new EmptyBorder(0, 0, 5, 0));
         add(pinned, BorderLayout.NORTH);
 

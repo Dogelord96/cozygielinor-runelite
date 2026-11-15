@@ -10,9 +10,10 @@
   membership and leadership permissions on the server for each private request.
 - Document and add explicit controls for chat forwarding, progress uploads
   and loot screenshots. Address chat visibility in screenshots before uploads.
-- Confirm that forwarding clan chat and gathering roster names is acceptable to
-  RuneLite reviewers. The current implementation collects other players' names,
-  which falls within an area covered by the rejected-features policy.
+- Explain the relay direction and scope in the submission. The release client
+  forwards messages written by its active character and displays Discord
+  replies locally. It does not gather channel rosters or forward other players'
+  game chat.
 - Exercise installation, pairing, logout and revocation with member, guest,
   and leadership accounts. Verify chat in both directions, progress persistence
   and a real screenshot upload.

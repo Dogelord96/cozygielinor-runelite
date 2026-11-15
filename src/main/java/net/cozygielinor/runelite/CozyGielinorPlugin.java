@@ -58,13 +58,14 @@ public class CozyGielinorPlugin extends Plugin
     @Override
     protected void startUp()
     {
-        progressSync = new ProgressSync(http);
+        PortalPairing pairing = new PortalPairing(http, gson);
+        progressSync = new ProgressSync(http, pairing);
         clanRelay.start();
         leadershipRelay = new ClanRelay(client, clientThread, gson, http, true);
         leadershipRelay.start();
         lootRelay.start();
         displayedRelayStatus = null;
-        panel = new CozyGielinorPanel(http, gson);
+        panel = new CozyGielinorPanel(http, gson, pairing);
         navigation = NavigationButton.builder()
             .tooltip("CozyGielinor")
             .icon(ImageUtil.resizeImage(ImageUtil.loadImageResource(CozyGielinorPlugin.class, "cozy-gielinor-logo.png"), 16, 16))

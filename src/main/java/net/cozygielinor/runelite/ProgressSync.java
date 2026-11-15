@@ -14,16 +14,17 @@ final class ProgressSync
         464, 598, 662, 721, 906, 1009, 1338, 1681, 2065, 2237, 2950, 3418, 3575,
         4066, 4411, 4944, 5238, 6014};
 
-    private final String key = System.getenv("COZY_PORTAL_BRIDGE_KEY");
     private final BridgeHttp http;
+    private final PortalPairing pairing;
     private volatile String saved;
     private volatile boolean sending;
     private long nextCheck;
     private volatile long session;
 
-    ProgressSync(BridgeHttp http)
+    ProgressSync(BridgeHttp http, PortalPairing pairing)
     {
         this.http = http;
+        this.pairing = pairing;
     }
 
     void reset()
@@ -35,14 +36,19 @@ final class ProgressSync
 
     void tick(Client client)
     {
-        if (key == null || client.getGameState() != GameState.LOGGED_IN || sending
+        if (client.getGameState() != GameState.LOGGED_IN || sending
             || System.nanoTime() < nextCheck)
         {
             return;
         }
         Player player = client.getLocalPlayer();
+        PortalPairing.Credential credential = player == null ? null : pairing.credentialFor(player.getName());
+        if (credential == null)
+        {
+            return;
+        }
         int[] varps = client.getVarps();
-        if (player == null || player.getName() == null || varps.length <= MUSIC[MUSIC.length - 1])
+        if (varps.length <= MUSIC[MUSIC.length - 1])
         {
             return;
         }
@@ -72,8 +78,8 @@ final class ProgressSync
         long activeSession = session;
         String body = snapshot.toString();
         if (body.equals(saved)) return;
-        Request request = new Request.Builder().url("http://127.0.0.1:48732/progress")
-            .header("Authorization", "Bearer " + key).post(BridgeHttp.json(body)).build();
+        Request request = new Request.Builder().url(PortalPairing.ORIGIN + "/api/runelite/client/progress")
+            .header("Authorization", "Bearer " + credential.token).post(BridgeHttp.json(body)).build();
         sending = true;
         http.send(request, 15, false, (code, unused) ->
         {

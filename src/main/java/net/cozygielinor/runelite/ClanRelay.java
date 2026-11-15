@@ -31,7 +31,6 @@ final class ClanRelay
     private ChatMessageType activeChat;
     private String activePlayer;
     private long nextPoll;
-    private long nextRoster;
     private long generation;
     private String cursor;
     private boolean polling;
@@ -101,11 +100,6 @@ final class ClanRelay
             }
         }
         long now = System.currentTimeMillis();
-        if ((chat == ChatMessageType.CLAN_CHAT || chat == ChatMessageType.FRIENDSCHAT) && now >= nextRoster)
-        {
-            publishRoster();
-            nextRoster = now + 60000;
-        }
         if (chat == null || polling || now < nextPoll)
         {
             return;
@@ -187,24 +181,23 @@ final class ClanRelay
         {
             return;
         }
-        boolean guest = type == ChatMessageType.CLAN_GUEST_CHAT || type == ChatMessageType.CLAN_GUEST_MESSAGE;
-        boolean broadcast = type == ChatMessageType.CLAN_MESSAGE || type == ChatMessageType.CLAN_GUEST_MESSAGE;
-        if (!leadership && (!(guest || broadcast || type == ChatMessageType.CLAN_CHAT)
+        boolean guest = type == ChatMessageType.CLAN_GUEST_CHAT;
+        if (!leadership && (!(guest || type == ChatMessageType.CLAN_CHAT)
             || !isCozy(guest ? client.getGuestClanChannel() : client.getClanChannel())))
         {
             return;
         }
         String name = clean(event.getName());
         String text = clean(event.getMessage());
-        if (text.isBlank() || name.startsWith("[Discord]") || name.contains("(Discord)") || (!broadcast && name.isBlank()))
+        if (text.isBlank() || name.isBlank() || !name.equalsIgnoreCase(clean(playerName())))
         {
             return;
         }
         JsonObject payload = new JsonObject();
         payload.addProperty("name", name);
         payload.addProperty("text", text);
-        payload.addProperty("broadcast", broadcast);
-        if (!broadcast && !leadership)
+        payload.addProperty("broadcast", false);
+        if (!leadership)
         {
             ClanSettings settings = guest ? client.getGuestClanSettings() : client.getClanSettings();
             ClanMember member = settings == null ? null : settings.findMember(name);
@@ -233,55 +226,6 @@ final class ClanRelay
         }
         http.send(request(endpoint).post(BridgeHttp.json(gson.toJson(payload))).build(),
             20, false, (code, body) -> {});
-    }
-
-    private void publishRoster()
-    {
-        if (leadership)
-        {
-            com.google.gson.JsonArray roster = new com.google.gson.JsonArray();
-            for (net.runelite.api.FriendsChatMember member : client.getFriendsChatManager().getMembers())
-            {
-                String name = clean(member.getName());
-                if (name.matches("[a-zA-Z0-9 _-]{1,12}"))
-                {
-                    JsonObject entry = new JsonObject();
-                    entry.addProperty("name", name);
-                    entry.addProperty("guest", false);
-                    roster.add(entry);
-                }
-            }
-            sendRoster(roster, "leadership-roster");
-            return;
-        }
-        ClanChannel channel = client.getClanChannel();
-        if (!isCozy(channel) || channel.getMembers().isEmpty())
-        {
-            return;
-        }
-        com.google.gson.JsonArray roster = new com.google.gson.JsonArray();
-        for (net.runelite.api.clan.ClanChannelMember member : channel.getMembers())
-        {
-            String name = clean(member.getName());
-            if (!name.matches("[a-zA-Z0-9 _-]{1,12}"))
-            {
-                continue;
-            }
-            JsonObject row = new JsonObject();
-            row.addProperty("name", name);
-            row.addProperty("guest", net.runelite.api.clan.ClanRank.GUEST.equals(member.getRank()));
-            roster.add(row);
-        }
-        sendRoster(roster, "roster");
-    }
-
-    private void sendRoster(com.google.gson.JsonArray roster, String route)
-    {
-        if (roster.size() > 0)
-        {
-            http.send(request(URI.create("http://127.0.0.1:48731/" + route))
-                .post(BridgeHttp.json(gson.toJson(roster))).build(), 25, false, (code, body) -> {});
-        }
     }
 
     private ChatMessageType currentChat()
