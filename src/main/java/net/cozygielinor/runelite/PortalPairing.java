@@ -11,6 +11,7 @@ final class PortalPairing
     private final BridgeHttp http;
     private final Gson gson;
     private volatile Credential credential;
+    private volatile boolean relayEnabled;
 
     PortalPairing(BridgeHttp http, Gson gson)
     {
@@ -46,6 +47,16 @@ final class PortalPairing
             }
             result.accept(accepted);
         });
+    }
+
+    void setRelayEnabled(boolean enabled)
+    {
+        relayEnabled = enabled;
+    }
+
+    boolean isRelayEnabled()
+    {
+        return relayEnabled;
     }
 
     Credential credentialFor(String character)

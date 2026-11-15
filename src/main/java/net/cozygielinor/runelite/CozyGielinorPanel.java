@@ -5,9 +5,7 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Rectangle;
-import java.net.URLEncoder;
 import okhttp3.Request;
-import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -20,6 +18,7 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -53,6 +52,7 @@ final class CozyGielinorPanel extends PluginPanel
 
     private final BridgeHttp http;
     private final Gson gson;
+    private final PortalPairing pairing;
     private final Timer refresh = new Timer(60000, event -> loadPortal());
     private String character;
     private long requestVersion;
@@ -62,6 +62,7 @@ final class CozyGielinorPanel extends PluginPanel
         super(false);
         this.http = http;
         this.gson = gson;
+        this.pairing = pairing;
         setLayout(new BorderLayout());
         setBackground(BACKGROUND);
         setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -107,12 +108,17 @@ final class CozyGielinorPanel extends PluginPanel
             pairing.exchange(input.strip(), accepted -> SwingUtilities.invokeLater(() ->
             {
                 pair.setEnabled(true);
+                if (accepted) loadPortal();
                 JOptionPane.showMessageDialog(this, accepted
                     ? "Paired. Account progress will sync when the linked character is active."
                     : "Pairing failed. Generate a new code and try again.");
             }));
         });
         pinned.add(pair);
+        JCheckBox relay = new JCheckBox("Share my clan chat with Discord");
+        relay.setAlignmentX(Component.LEFT_ALIGNMENT);
+        relay.addActionListener(event -> pairing.setRelayEnabled(relay.isSelected()));
+        pinned.add(relay);
         pinned.setBorder(new EmptyBorder(0, 0, 5, 0));
         add(pinned, BorderLayout.NORTH);
 
@@ -177,15 +183,14 @@ final class CozyGielinorPanel extends PluginPanel
             renderPortal(null, "Log in to load your portal data.");
             return;
         }
-        String secret = System.getenv("COZY_PORTAL_BRIDGE_KEY");
-        if (secret == null || secret.isBlank())
+        PortalPairing.Credential credential = pairing.credentialFor(character);
+        if (credential == null)
         {
             renderPortal(null, "Portal not connected");
             return;
         }
-        Request request = new Request.Builder().url("http://127.0.0.1:48732/snapshot?account="
-            + URLEncoder.encode(character, StandardCharsets.UTF_8))
-            .header("Authorization", "Bearer " + secret).build();
+        Request request = new Request.Builder().url(PortalPairing.ORIGIN + "/api/runelite/client/snapshot")
+            .header("Authorization", "Bearer " + credential.token).build();
         http.send(request, 30, true, (code, body) ->
             SwingUtilities.invokeLater(() ->
             {
@@ -195,9 +200,9 @@ final class CozyGielinorPanel extends PluginPanel
                 }
                 if (code != 200)
                 {
-                    String message = code == 0 ? "Local portal bridge unavailable."
-                        : code == 403 ? "Check the bridge key and linked OSRS account."
-                        : "Check your portal session.";
+                    String message = code == 401 ? "Pair your account again."
+                        : code == 403 ? "Check your clan membership and linked character."
+                        : "Portal data unavailable.";
                     renderPortal(null, message);
                     return;
                 }

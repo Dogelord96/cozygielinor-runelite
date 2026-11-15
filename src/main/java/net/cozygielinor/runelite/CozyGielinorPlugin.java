@@ -31,7 +31,6 @@ public class CozyGielinorPlugin extends Plugin
     @Inject
     private Client client;
 
-    @Inject
     private ClanRelay clanRelay;
 
     @Inject
@@ -60,9 +59,8 @@ public class CozyGielinorPlugin extends Plugin
     {
         PortalPairing pairing = new PortalPairing(http, gson);
         progressSync = new ProgressSync(http, pairing);
-        clanRelay.start();
-        leadershipRelay = new ClanRelay(client, clientThread, gson, http, true);
-        leadershipRelay.start();
+        clanRelay = new ClanRelay(client, clientThread, gson, http, pairing, false);
+        leadershipRelay = new ClanRelay(client, clientThread, gson, http, pairing, true);
         lootRelay.start();
         displayedRelayStatus = null;
         panel = new CozyGielinorPanel(http, gson, pairing);
@@ -77,8 +75,8 @@ public class CozyGielinorPlugin extends Plugin
     @Override
     protected void shutDown()
     {
-        clanRelay.stop();
-        leadershipRelay.stop();
+        clanRelay.reset();
+        leadershipRelay.reset();
         lootRelay.stop();
         CozyGielinorPanel closing = panel;
         panel = null;

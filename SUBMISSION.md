@@ -2,14 +2,14 @@
 
 ## Release work
 
-- Route bridge requests over HTTPS on the CozyGielinor domain. Store Discord
-  channel IDs, bot tokens and infrastructure credentials in private server
-  configuration.
-- Pair the plugin to an authenticated portal account in the browser. Issue
-  expiring, revocable credentials scoped to the verified character. Check
-  membership and leadership permissions on the server for each private request.
-- Document and add explicit controls for chat forwarding, progress uploads
-  and loot screenshots. Address chat visibility in screenshots before uploads.
+- Deploy the pairing, progress and chat endpoints on the CozyGielinor HTTPS
+  portal. Configure the Discord channels in the private server environment.
+- Test pairing with a linked character. The portal authorizes a one-time code
+  and the client keeps the resulting expiring token in memory. The portal can
+  revoke the token and checks the character link and membership on requests.
+- Pairing enables progress sync. The Discord relay has a separate opt-in.
+  Before including loot screenshots in the hosted release, add an explicit
+  control and address chat visibility in the captured frame.
 - Explain the relay direction and scope in the submission. The release client
   forwards messages written by its active character and displays Discord
   replies locally. It does not gather channel rosters or forward other players'

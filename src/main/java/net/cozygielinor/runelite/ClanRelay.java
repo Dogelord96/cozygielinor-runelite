@@ -6,14 +6,10 @@ import java.net.URI;
 import okhttp3.Request;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import javax.inject.Inject;
 import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.clan.ClanChannel;
-import net.runelite.api.clan.ClanMember;
-import net.runelite.api.clan.ClanSettings;
-import net.runelite.api.clan.ClanTitle;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.util.Text;
@@ -24,7 +20,7 @@ final class ClanRelay
     private final boolean leadership;
     private final Client client;
     private final ClientThread clientThread;
-    private final String key;
+    private final PortalPairing pairing;
     private final Set<String> displayedIds = new LinkedHashSet<>();
     private final Gson gson;
     private final BridgeHttp http;
@@ -34,7 +30,6 @@ final class ClanRelay
     private long generation;
     private String cursor;
     private boolean polling;
-    private boolean enabled;
     private boolean rendering;
     private volatile String status = "Relay not configured";
 
@@ -43,39 +38,21 @@ final class ClanRelay
         return status;
     }
 
-    @Inject
-    ClanRelay(Client client, ClientThread clientThread, Gson gson, BridgeHttp http)
-    {
-        this(client, clientThread, gson, http, false);
-    }
-
-    ClanRelay(Client client, ClientThread clientThread, Gson gson, BridgeHttp http, boolean leadership)
+    ClanRelay(Client client, ClientThread clientThread, Gson gson, BridgeHttp http, PortalPairing pairing, boolean leadership)
     {
         this.leadership = leadership;
-        endpoint = URI.create("http://127.0.0.1:48731/" + (leadership ? "leadership" : "clan"));
-        key = System.getenv(leadership ? "COZY_LEADERSHIP_RELAY_KEY" : "COZY_RELAY_KEY");
+        endpoint = URI.create(PortalPairing.ORIGIN + "/api/runelite/client/chat/" + (leadership ? "leadership" : "clan"));
+        this.pairing = pairing;
         this.client = client;
         this.clientThread = clientThread;
         this.gson = gson;
         this.http = http;
     }
 
-    void start()
-    {
-        enabled = key != null && !key.isBlank();
-        status = enabled ? "Join CozyGielinor Clan Chat" : "Relay not configured";
-    }
-
-    void stop()
-    {
-        enabled = false;
-        reset();
-    }
-
     void reset()
     {
         activeChat = null;
-        status = enabled ? "Join CozyGielinor Clan Chat" : "Relay not configured";
+        status = "Discord relay disconnected";
         cursor = null;
         nextPoll = 0;
         polling = false;
@@ -84,8 +61,10 @@ final class ClanRelay
 
     void tick()
     {
-        if (!enabled)
+        PortalPairing.Credential credential = relayCredential();
+        if (credential == null)
         {
+            if (activeChat != null) reset();
             return;
         }
         ChatMessageType chat = currentChat();
@@ -108,14 +87,15 @@ final class ClanRelay
         nextPoll = now + 5000;
         long requestGeneration = generation;
         URI uri = cursor == null ? endpoint : URI.create(endpoint + "?after=" + cursor);
-        http.send(request(uri).get().build(), 20, true, (code, body) -> clientThread.invokeLater(() ->
+        http.send(request(uri, credential).get().build(), 20, true, (code, body) -> clientThread.invokeLater(() ->
         {
             if (requestGeneration != generation)
             {
                 return;
             }
             polling = false;
-            if (chat != currentChat() || !java.util.Objects.equals(activePlayer, playerName()))
+            if (relayCredential() != credential || chat != currentChat()
+                || !java.util.Objects.equals(activePlayer, playerName()))
             {
                 return;
             }
@@ -172,7 +152,8 @@ final class ClanRelay
 
     void onChat(ChatMessage event)
     {
-        if (!enabled || rendering || client.getGameState() != GameState.LOGGED_IN)
+        PortalPairing.Credential credential = relayCredential();
+        if (credential == null || rendering || client.getGameState() != GameState.LOGGED_IN)
         {
             return;
         }
@@ -194,37 +175,8 @@ final class ClanRelay
             return;
         }
         JsonObject payload = new JsonObject();
-        payload.addProperty("name", name);
         payload.addProperty("text", text);
-        payload.addProperty("broadcast", false);
-        if (!leadership)
-        {
-            ClanSettings settings = guest ? client.getGuestClanSettings() : client.getClanSettings();
-            ClanMember member = settings == null ? null : settings.findMember(name);
-            ClanTitle rank = member == null ? null : settings.titleForRank(member.getRank());
-            if (rank != null)
-            {
-                payload.addProperty("rank", rank.getName());
-            }
-            String rawName = event.getName();
-            if (rawName != null)
-            {
-                java.util.Map<Integer, String> accountTypes = java.util.Map.of(
-                    2, "ironman", 3, "ultimate_ironman", 10, "hardcore_ironman",
-                    41, "group_ironman", 42, "hardcore_group_ironman", 43, "unranked_group_ironman");
-                java.util.regex.Matcher icons = java.util.regex.Pattern.compile("<img=(\\d{1,3})>").matcher(rawName);
-                while (icons.find())
-                {
-                    String accountType = accountTypes.get(Integer.parseInt(icons.group(1)));
-                    if (accountType != null)
-                    {
-                        payload.addProperty("accountType", accountType);
-                        break;
-                    }
-                }
-            }
-        }
-        http.send(request(endpoint).post(BridgeHttp.json(gson.toJson(payload))).build(),
+        http.send(request(endpoint, credential).post(BridgeHttp.json(gson.toJson(payload))).build(),
             20, false, (code, body) -> {});
     }
 
@@ -268,15 +220,15 @@ final class ClanRelay
         return player == null ? null : player.getName();
     }
 
-    private Request.Builder request(URI uri)
+    private PortalPairing.Credential relayCredential()
     {
-        Request.Builder builder = new Request.Builder().url(uri.toString())
-            .header("Authorization", "Bearer " + key);
-        if (leadership)
-        {
-            builder.header("X-Cozy-Player", playerName());
-        }
-        return builder;
+        return pairing.isRelayEnabled() ? pairing.credentialFor(playerName()) : null;
+    }
+
+    private Request.Builder request(URI uri, PortalPairing.Credential credential)
+    {
+        return new Request.Builder().url(uri.toString())
+            .header("Authorization", "Bearer " + credential.token);
     }
 
     private static final class Batch
