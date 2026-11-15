@@ -1,11 +1,14 @@
 package net.cozygielinor.runelite;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import okhttp3.Request;
 import java.time.Duration;
 import net.runelite.api.Client;
 import net.runelite.api.GameState;
 import net.runelite.api.Player;
+import net.runelite.api.Quest;
+import net.runelite.api.gameval.VarbitID;
+import okhttp3.Request;
 
 final class ProgressSync
 {
@@ -57,7 +60,12 @@ final class ProgressSync
         JsonObject snapshot = new JsonObject();
         snapshot.addProperty("account", player.getName());
         snapshot.addProperty("questPoints", varps[101]);
-        snapshot.addProperty("combatPoints", client.getVarbitValue(14815));
+        JsonObject quests = new JsonObject();
+        for (Quest quest : Quest.values())
+        {
+            quests.addProperty(Integer.toString(quest.getId()), quest.getState(client).name());
+        }
+        snapshot.add("questStates", quests);
         JsonObject diaries = new JsonObject();
         for (int id = 4458; id <= 4498; id++)
         {
@@ -68,7 +76,12 @@ final class ProgressSync
             diaries.addProperty(Integer.toString(id), client.getVarbitValue(id) != 0);
         }
         snapshot.add("diaryTiers", diaries);
-        com.google.gson.JsonArray music = new com.google.gson.JsonArray();
+        JsonObject karamja = new JsonObject();
+        karamja.addProperty("easy", client.getVarbitValue(VarbitID.KARAMJA_EASY_COUNT));
+        karamja.addProperty("medium", client.getVarbitValue(VarbitID.KARAMJA_MED_COUNT));
+        karamja.addProperty("hard", client.getVarbitValue(VarbitID.KARAMJA_HARD_COUNT));
+        snapshot.add("karamjaTaskCounts", karamja);
+        JsonArray music = new JsonArray();
         for (int id : MUSIC)
         {
             music.add(Integer.toUnsignedLong(varps[id]));

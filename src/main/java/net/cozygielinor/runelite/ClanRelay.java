@@ -222,7 +222,7 @@ final class ClanRelay
 
     private PortalPairing.Credential relayCredential()
     {
-        return pairing.isRelayEnabled() ? pairing.credentialFor(playerName()) : null;
+        return pairing.isRelayEnabled(leadership) ? pairing.credentialFor(playerName()) : null;
     }
 
     private Request.Builder request(URI uri, PortalPairing.Credential credential)

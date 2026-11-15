@@ -117,8 +117,12 @@ final class CozyGielinorPanel extends PluginPanel
         pinned.add(pair);
         JCheckBox relay = new JCheckBox("Share my clan chat with Discord");
         relay.setAlignmentX(Component.LEFT_ALIGNMENT);
-        relay.addActionListener(event -> pairing.setRelayEnabled(relay.isSelected()));
+        relay.addActionListener(event -> pairing.setRelayEnabled(false, relay.isSelected()));
         pinned.add(relay);
+        JCheckBox leadershipRelay = new JCheckBox("Share my leadership chat with Discord");
+        leadershipRelay.setAlignmentX(Component.LEFT_ALIGNMENT);
+        leadershipRelay.addActionListener(event -> pairing.setRelayEnabled(true, leadershipRelay.isSelected()));
+        pinned.add(leadershipRelay);
         pinned.setBorder(new EmptyBorder(0, 0, 5, 0));
         add(pinned, BorderLayout.NORTH);
 

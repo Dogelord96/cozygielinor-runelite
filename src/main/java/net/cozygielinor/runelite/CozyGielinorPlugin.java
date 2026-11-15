@@ -15,7 +15,6 @@ import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.client.eventbus.Subscribe;
-import net.runelite.client.plugins.loottracker.LootReceived;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
@@ -44,8 +43,6 @@ public class CozyGielinorPlugin extends Plugin
     private ClanRelay leadershipRelay;
     private ProgressSync progressSync;
 
-    @Inject
-    private LootRelay lootRelay;
 
     private NavigationButton navigation;
     private volatile CozyGielinorPanel panel;
@@ -61,7 +58,6 @@ public class CozyGielinorPlugin extends Plugin
         progressSync = new ProgressSync(http, pairing);
         clanRelay = new ClanRelay(client, clientThread, gson, http, pairing, false);
         leadershipRelay = new ClanRelay(client, clientThread, gson, http, pairing, true);
-        lootRelay.start();
         displayedRelayStatus = null;
         panel = new CozyGielinorPanel(http, gson, pairing);
         navigation = NavigationButton.builder()
@@ -77,7 +73,6 @@ public class CozyGielinorPlugin extends Plugin
     {
         clanRelay.reset();
         leadershipRelay.reset();
-        lootRelay.stop();
         CozyGielinorPanel closing = panel;
         panel = null;
         SwingUtilities.invokeLater(closing::stop);
@@ -103,12 +98,6 @@ public class CozyGielinorPlugin extends Plugin
             ClanTitle rank = inClan ? clan.titleForRank(member.getRank()) : null;
             updateAccount(name, inClan, rank == null ? null : rank.getName());
         }
-    }
-
-    @Subscribe
-    public void onLootReceived(LootReceived event)
-    {
-        lootRelay.onLoot(event);
     }
 
     @Subscribe

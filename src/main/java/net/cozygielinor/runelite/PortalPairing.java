@@ -12,6 +12,7 @@ final class PortalPairing
     private final Gson gson;
     private volatile Credential credential;
     private volatile boolean relayEnabled;
+    private volatile boolean leadershipRelayEnabled;
 
     PortalPairing(BridgeHttp http, Gson gson)
     {
@@ -49,14 +50,21 @@ final class PortalPairing
         });
     }
 
-    void setRelayEnabled(boolean enabled)
+    void setRelayEnabled(boolean leadership, boolean enabled)
     {
-        relayEnabled = enabled;
+        if (leadership)
+        {
+            leadershipRelayEnabled = enabled;
+        }
+        else
+        {
+            relayEnabled = enabled;
+        }
     }
 
-    boolean isRelayEnabled()
+    boolean isRelayEnabled(boolean leadership)
     {
-        return relayEnabled;
+        return leadership ? leadershipRelayEnabled : relayEnabled;
     }
 
     Credential credentialFor(String character)
