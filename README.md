@@ -1,27 +1,34 @@
 # CozyGielinor for RuneLite
 
-A dedicated RuneLite plugin for the CozyGielinor clan, connecting your in-game character with our clan portal and community.
+A dedicated RuneLite plugin connecting the CozyGielinor clan with its clan portal and Discord community.
 
 ## Features
 
-- **Clan portal progress sync:** Shares your character's music unlocks, quest progress, achievement diaries and other supported account progress with the CozyGielinor clan portal.
-- **Two-way clan chat relay:** Connects in-game clan chat with the clan's Discord channel. With the relay enabled, your own in-game messages are forwarded to Discord, and incoming Discord messages appear locally in RuneLite.
-- **In-game event broadcasts:** Displays clan event announcements and reminders in RuneLite through the clan relay.
+- **Automatic two-way clan chat:** Connects when you are logged in and have the CozyGielinor clan chat open, including as a guest. Your own messages are forwarded to the community Discord channel, and Discord replies appear locally in RuneLite. No pairing code or separate relay setting is needed.
+- **In-game event broadcasts:** Shows announcements from the clan's own bot in the community relay, without echoing relayed player messages.
+- **Leadership tab and Friends Chat relay:** After verifying a linked character, authorized leadership members see the next leadership meeting and a link to its agenda. The private relay connects automatically while the CozyGielinor Friends Chat is open.
+- **Clan portal progress sync:** A paired character shares supported music unlocks, quest progress and achievement diary progress with the clan portal.
 
 ## Getting started
 
-1. Enable CozyGielinor in RuneLite and open its sidebar panel.
-2. Log in to your linked Old School RuneScape character.
-3. Click **Pair account**, sign in to the [CozyGielinor portal](https://home.cozygielinor.net/runelite-pairing) and generate a one-time pairing code.
-4. Paste the code into the plugin to connect your character and start syncing account progress.
-5. Enable **Share my clan chat with Discord** if you want to use the clan chat relay and receive its announcements. Join the CozyGielinor clan chat in game.
+Enable CozyGielinor in RuneLite, log in and join the CozyGielinor clan chat. The community relay connects automatically.
 
-The separate leadership chat relay is available to authorized leadership members and has its own opt-in setting.
+For private portal features and leadership access, open the plugin's **Dashboard**:
+
+1. Click **Get connection code** and sign in to the [clan portal](https://home.cozygielinor.net/runelite-pairing).
+2. Generate a code for the character currently logged in to RuneLite.
+3. Paste it into the dashboard and click **Connect account**.
+
+The connection controls disappear once that character is connected. The plugin remembers the credential locally and reconnects automatically after restarting. Credentials expire after 30 days and can be revoked in the portal. Switching characters hides the Leadership tab until the active character is verified. Losing leadership permissions revokes leadership access and disconnects the previously authorized pairing.
+
+The server checks leadership permissions on private requests. The plugin refreshes the Leadership tab every 15 seconds; temporary connection failures hide the tab until access can be checked again.
 
 ## Data sharing
 
-The plugin connects to the CozyGielinor portal at `https://home.cozygielinor.net`. Pairing shares your active linked character's account progress with that service. Enabling a chat relay also shares your character name and your own messages with the corresponding clan Discord channel. Incoming relay messages are displayed locally in your RuneLite client.
+This plugin connects to `https://home.cozygielinor.net`, a service operated separately from RuneLite. Requests reveal your IP address. While the community relay is active, your character name and your own clan chat messages are sent to the community Discord channel automatically. Installing and enabling the plugin enables this sharing; disable the plugin to stop it.
 
-Requests reveal your IP address to the portal. Chat relays are optional, and pairing access can be revoked through the portal. The plugin requires the CozyGielinor online services to be available.
+The community relay is public and its character labels are unverified. It provides no access to private leadership messages, private portal data or account progress updates. Leadership access requires a verified pairing; private Friends Chat relay messages and paired account progress are sent only for the active linked character.
 
-For help with pairing or access, contact the CozyGielinor clan team.
+The locally saved credential grants access to that paired character's portal features. Do not share it. You can revoke it using **Disconnect RuneLite sessions** on the portal's connection page.
+
+The plugin requires the CozyGielinor online services to be available. Contact the clan team for help with pairing or access.

@@ -33,3 +33,12 @@ tasks.register('run', JavaExec) {
         layout.buildDirectory.dir('runelite-home').get().asFile.mkdirs()
     }
 }
+
+tasks.register('verifyCompanion', JavaExec) {
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'net.cozygielinor.runelite.CompanionVerification'
+    systemProperty 'java.awt.headless', 'true'
+    systemProperty 'user.home', layout.buildDirectory.dir('verification-home').get().asFile.absolutePath
+}
+tasks.named('check') { dependsOn 'verifyCompanion' }

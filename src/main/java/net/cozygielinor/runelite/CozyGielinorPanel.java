@@ -18,7 +18,8 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
+import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -55,7 +56,12 @@ final class CozyGielinorPanel extends PluginPanel
     private final BridgeHttp http;
     private final Gson gson;
     private final PortalPairing pairing;
-    private final Timer refresh = new Timer(60000, event -> loadPortal());
+    private final Timer refresh = new Timer(15000, event -> { loadPortal(); loadLeadership(); });
+    private final JTabbedPane tabs = new JTabbedPane();
+    private final JPanel leadership = stack(BACKGROUND);
+    private final JPanel pairingControls = stack(BACKGROUND);
+    private final JLabel pairingStatus = label("", 10, Font.PLAIN, MUTED);
+    private long leadershipVersion;
     private String character;
     private long requestVersion;
 
@@ -96,37 +102,38 @@ final class CozyGielinorPanel extends PluginPanel
         joinDiscord.addActionListener(event -> LinkBrowser.browse("https://cozygielinor.net/discord"));
         joinDiscord.setVisible(false);
         pinned.add(joinDiscord);
-        JButton pair = new JButton("Pair account");
-        pair.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JTextField code = new JTextField();
+        code.setMaximumSize(new Dimension(Integer.MAX_VALUE, 26));
+        code.setToolTipText("Paste the one-time code from the clan portal");
+        JButton generate = new JButton("Get connection code ↗");
+        generate.addActionListener(event -> LinkBrowser.browse(PortalPairing.ORIGIN + "/runelite-pairing"));
+        JButton pair = new JButton("Connect account");
         pair.addActionListener(event ->
         {
-            LinkBrowser.browse(PortalPairing.ORIGIN + "/runelite-pairing");
-            String input = JOptionPane.showInputDialog(this,
-                "Pairing shares your character's quest, diary and music progress with the CozyGielinor portal.\n"
-                    + PORTAL_NOTICE + "\nPaste your one-time pairing code:");
-            if (input == null || input.isBlank())
+            if (character == null || !code.getText().strip().matches("[A-Za-z0-9_-]{32}"))
             {
+                pairingStatus.setText("Log in and paste a valid connection code.");
                 return;
             }
+            String pairingCharacter = character;
             pair.setEnabled(false);
-            pairing.exchange(input.strip(), accepted -> SwingUtilities.invokeLater(() ->
+            pairing.exchange(code.getText().strip(), pairingCharacter, accepted -> SwingUtilities.invokeLater(() ->
             {
                 pair.setEnabled(true);
-                if (accepted) loadPortal();
-                JOptionPane.showMessageDialog(this, accepted
-                    ? "Paired. Account progress will sync when the linked character is active."
-                    : "Pairing failed. Generate a new code and try again.");
+                code.setText("");
+                pairingStatus.setText(accepted ? "Connected." : "Code expired or belongs to another character.");
+                updatePairingControls();
+                loadPortal();
+                loadLeadership();
             }));
         });
-        pinned.add(pair);
-        JCheckBox relay = new JCheckBox("Share my clan chat with Discord");
-        relay.setAlignmentX(Component.LEFT_ALIGNMENT);
-        relay.addActionListener(event -> setRelayPreference(relay, false));
-        pinned.add(relay);
-        JCheckBox leadershipRelay = new JCheckBox("Share my leadership chat with Discord");
-        leadershipRelay.setAlignmentX(Component.LEFT_ALIGNMENT);
-        leadershipRelay.addActionListener(event -> setRelayPreference(leadershipRelay, true));
-        pinned.add(leadershipRelay);
+        pairingControls.add(label("Connect for private portal access", 11, Font.BOLD, TEXT));
+        pairingControls.add(generate);
+        pairingControls.add(code);
+        pairingControls.add(pair);
+        pinned.add(pairingControls);
+        pinned.add(pairingStatus);
+        updatePairingControls();
         pinned.setBorder(new EmptyBorder(0, 0, 5, 0));
         add(pinned, BorderLayout.NORTH);
 
@@ -136,21 +143,70 @@ final class CozyGielinorPanel extends PluginPanel
         scroll.setBorder(BorderFactory.createEmptyBorder());
         scroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
         scroll.getVerticalScrollBar().setUnitIncrement(16);
-        add(scroll, BorderLayout.CENTER);
+        tabs.addTab("Dashboard", scroll);
+        add(tabs, BorderLayout.CENTER);
         renderPortal(null, "Log in to load your portal data.");
     }
 
-    private void setRelayPreference(JCheckBox checkbox, boolean leadership)
+    private void updatePairingControls()
     {
-        if (checkbox.isSelected())
+        pairingControls.setVisible(character != null && pairing.credentialFor(character) == null);
+    }
+
+    private void lockLeadership()
+    {
+        int index = tabs.indexOfComponent(leadership);
+        if (index >= 0) tabs.removeTabAt(index);
+        leadership.removeAll();
+        pairing.approveLeadership(false);
+    }
+
+    private void loadLeadership()
+    {
+        long version = ++leadershipVersion;
+        PortalPairing.Credential credential = pairing.credentialFor(character);
+        updatePairingControls();
+        if (credential == null) { lockLeadership(); return; }
+        Request request = new Request.Builder().url(PORTAL + "/api/runelite/client/leadership")
+            .header("Authorization", "Bearer " + credential.token).build();
+        http.send(request, 15, true, (status, body) -> SwingUtilities.invokeLater(() ->
         {
-            String channel = leadership ? "leadership chat" : "clan chat";
-            int answer = JOptionPane.showConfirmDialog(this,
-                "Your own " + channel + " messages and character name will be shared with the clan's Discord channel.\n"
-                    + PORTAL_NOTICE, "Enable Discord relay", JOptionPane.OK_CANCEL_OPTION);
-            checkbox.setSelected(answer == JOptionPane.OK_OPTION);
-        }
-        pairing.setRelayEnabled(leadership, checkbox.isSelected());
+            if (version != leadershipVersion || pairing.credentialFor(character) != credential) return;
+            if (status != 200)
+            {
+                lockLeadership();
+                if (status == 401 || status == 403)
+                {
+                    pairing.disconnect();
+                    updatePairingControls();
+                    pairingStatus.setText("Connection ended. Verify your access in the portal.");
+                }
+                return;
+            }
+            try
+            {
+                JsonObject data = gson.fromJson(body, JsonObject.class);
+                if (data == null || !data.has("leadership") || !data.get("leadership").getAsBoolean())
+                { lockLeadership(); return; }
+                pairing.approveLeadership(true);
+                leadership.removeAll();
+                JsonObject meeting = object(data.get("nextMeeting"));
+                if (meeting.size() == 0) card(leadership, "No upcoming leadership meeting");
+                else
+                {
+                    String date = java.time.Instant.parse(value(meeting, "startsAt", ""))
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .format(java.time.format.DateTimeFormatter.ofPattern("EEE d MMM, HH:mm z"));
+                    card(leadership, "Next leadership meeting", value(meeting, "title", "Meeting"), date,
+                        "Focus: " + value(meeting, "focus", "team"));
+                }
+                portalLink(leadership, "Open meeting agenda", "/calendar.html");
+                if (tabs.indexOfComponent(leadership) < 0) tabs.addTab("Leadership", leadership);
+                leadership.revalidate();
+                leadership.repaint();
+            }
+            catch (RuntimeException invalid) { lockLeadership(); }
+        }));
     }
 
     void setRelayStatus(String status)
@@ -166,6 +222,8 @@ final class CozyGielinorPanel extends PluginPanel
     {
         refresh.stop();
         requestVersion++;
+        leadershipVersion++;
+        lockLeadership();
     }
 
     void setActiveAccount(String name, boolean inClan, String rank)
@@ -183,6 +241,9 @@ final class CozyGielinorPanel extends PluginPanel
         if (!Objects.equals(character, name))
         {
             character = name;
+            lockLeadership();
+            updatePairingControls();
+            loadLeadership();
             if (name != null)
             {
                 renderPortal(null, "Loading portal data…");
@@ -224,6 +285,8 @@ final class CozyGielinorPanel extends PluginPanel
                     String message = code == 401 ? "Pair your account again."
                         : code == 403 ? "Check your clan membership and linked character."
                         : "Portal data unavailable.";
+                    if ((code == 401 || code == 403) && pairing.credentialFor(character) == credential)
+                    { pairing.disconnect(); updatePairingControls(); lockLeadership(); }
                     renderPortal(null, message);
                     return;
                 }

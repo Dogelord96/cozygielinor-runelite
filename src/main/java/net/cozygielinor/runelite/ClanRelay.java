@@ -41,7 +41,7 @@ final class ClanRelay
     ClanRelay(Client client, ClientThread clientThread, Gson gson, BridgeHttp http, PortalPairing pairing, boolean leadership)
     {
         this.leadership = leadership;
-        endpoint = URI.create(PortalPairing.ORIGIN + "/api/runelite/client/chat/" + (leadership ? "leadership" : "clan"));
+        endpoint = URI.create(PortalPairing.ORIGIN + (leadership ? "/api/runelite/client/chat/leadership" : "/api/runelite/community/chat"));
         this.pairing = pairing;
         this.client = client;
         this.clientThread = clientThread;
@@ -62,7 +62,7 @@ final class ClanRelay
     void tick()
     {
         PortalPairing.Credential credential = relayCredential();
-        if (credential == null)
+        if (leadership && credential == null)
         {
             if (activeChat != null) reset();
             return;
@@ -101,6 +101,7 @@ final class ClanRelay
             }
             if (code != 200)
             {
+                if (leadership && (code == 401 || code == 403)) pairing.disconnect();
                 status = "Clan relay unavailable";
                 return;
             }
@@ -153,7 +154,7 @@ final class ClanRelay
     void onChat(ChatMessage event)
     {
         PortalPairing.Credential credential = relayCredential();
-        if (credential == null || rendering || client.getGameState() != GameState.LOGGED_IN)
+        if ((leadership && credential == null) || rendering || client.getGameState() != GameState.LOGGED_IN)
         {
             return;
         }
@@ -176,6 +177,7 @@ final class ClanRelay
         }
         JsonObject payload = new JsonObject();
         payload.addProperty("text", text);
+        if (!leadership) payload.addProperty("account", playerName());
         http.send(request(endpoint, credential).post(BridgeHttp.json(gson.toJson(payload))).build(),
             20, false, (code, body) -> {});
     }
@@ -222,13 +224,13 @@ final class ClanRelay
 
     private PortalPairing.Credential relayCredential()
     {
-        return pairing.isRelayEnabled(leadership) ? pairing.credentialFor(playerName()) : null;
+        return leadership && pairing.leadershipApproved() ? pairing.credentialFor(playerName()) : null;
     }
 
     private Request.Builder request(URI uri, PortalPairing.Credential credential)
     {
-        return new Request.Builder().url(uri.toString())
-            .header("Authorization", "Bearer " + credential.token);
+        Request.Builder builder = new Request.Builder().url(uri.toString());
+        return credential == null ? builder : builder.header("Authorization", "Bearer " + credential.token);
     }
 
     private static final class Batch

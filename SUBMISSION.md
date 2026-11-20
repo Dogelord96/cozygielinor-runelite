@@ -1,36 +1,14 @@
 # Plugin Hub submission
 
-## Release work
+## v0.2 review notes
 
-- Deploy the pairing, progress and chat endpoints on the CozyGielinor HTTPS
-  portal. Configure the Discord channels in the private server environment.
-- Test pairing with a linked character. The portal authorizes a one-time code
-  and the client keeps the resulting expiring token in memory. The portal can
-  revoke the token and checks the character link and membership on requests.
-- Pairing enables quest, diary and music sync. The clan and leadership relays
-  each have their own opt-in.
-- Explain the relay direction and scope in the submission. The release client
-  forwards messages written by its active character and displays Discord
-  replies locally. It does not gather channel rosters or forward other players'
-  game chat.
-- Exercise installation, pairing, logout and revocation with member, guest,
-  and leadership accounts. Verify chat in both directions and progress persistence.
-- Verify CozyManager changes using `node scripts/test-all.mjs` from the
-  application root. Run mutation checks against the isolated test server.
-- Confirm redistribution rights for the logo and choose the public source license.
+- The community clan relay connects automatically for logged-in characters in the CozyGielinor clan or guest clan channel. It forwards only the active character's own messages. Community character labels are explicitly unverified.
+- The Plugin Hub marker includes an installation warning covering the automatic sharing of IP address, character name and clan chat messages, plus paired progress and private leadership features.
+- Private portal progress and leadership access require a one-time browser-generated code. The credential is stored locally and expires after 30 days. The portal stores only a token digest, supports revocation and checks membership, linked character and leadership permissions on private requests.
+- The Leadership tab shows the next meeting after authorization. Losing leadership rights revokes the previously approved connection. Regular paired members do not receive leadership data.
+- The relay displays Discord messages locally. Clan announcements from the service's own bot are included; forwarded player messages are not echoed.
+- `gradlew.bat build --offline` includes offline behavioral checks for saved credentials, character boundaries, dashboard controls and leadership revocation.
+- Server changes must pass `node scripts/test-all.mjs` from the final application root. The runner uses an isolated workspace, database and HTTP server; never run mutation checks against production.
+- Live gameplay with real member, guest and leadership characters still requires manual verification. The automated checks do not represent an in-game end-to-end test.
 
-## Submit
-
-Fork [runelite/plugin-hub](https://github.com/runelite/plugin-hub) and add
-`plugins/cozygielinor` with the public repository and full release commit SHA.
-
-```properties
-repository=https://github.com/Dogelord96/cozygielinor-runelite.git
-commit=<full-release-commit-sha>
-```
-
-Open a pull request against the upstream Plugin Hub and follow the build and
-review on that pull request.
-
-[Submission instructions](https://github.com/runelite/plugin-hub#submitting-a-plugin)
-· [RuneLite rejected features](https://github.com/runelite/runelite/wiki/Rejected-or-Rolled-Back-Features)
+Update the existing Plugin Hub pull request to the public release commit. Keep the repository's BSD 2-Clause license template and installation warning.
