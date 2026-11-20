@@ -3,11 +3,8 @@ package net.cozygielinor.runelite;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import okhttp3.Request;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.charset.StandardCharsets;
-import net.runelite.client.RuneLite;
+import net.runelite.client.util.Filepath;
 
 final class PortalPairing
 {
@@ -16,15 +13,24 @@ final class PortalPairing
     private final Gson gson;
     private volatile Credential credential;
     private volatile boolean leadershipApproved;
-    private final Path savedCredential = RuneLite.RUNELITE_DIR.toPath().resolve("cozygielinor-pairing.json");
+    private final Filepath directory;
+    private final Filepath savedCredential;
 
-    PortalPairing(BridgeHttp http, Gson gson)
+    PortalPairing(BridgeHttp http, Gson gson, Filepath directory)
     {
         this.http = http;
         this.gson = gson;
+        this.directory = directory;
+        this.savedCredential = directory.joinSegment("pairing.json");
         try
         {
-            if (Files.exists(savedCredential)) credential = gson.fromJson(Files.readString(savedCredential), Credential.class);
+            if (savedCredential.exists())
+            {
+                try (var reader = savedCredential.openBufferedReader())
+                {
+                    credential = gson.fromJson(reader, Credential.class);
+                }
+            }
             if (!valid(credential)) disconnect();
         }
         catch (Exception ignored) { disconnect(); }
@@ -66,25 +72,26 @@ final class PortalPairing
     {
         credential = null;
         leadershipApproved = false;
-        try { Files.deleteIfExists(savedCredential); } catch (Exception ignored) { }
+        try { savedCredential.deleteIfExists(); } catch (Exception ignored) { }
     }
 
     private synchronized void save()
     {
-        Path temporary = savedCredential.resolveSibling("cozygielinor-pairing.tmp");
+        Filepath temporary = null;
         try
         {
-            Files.createDirectories(savedCredential.getParent());
-            Files.deleteIfExists(temporary);
-            Files.createFile(temporary);
-            try { Files.setPosixFilePermissions(temporary, java.nio.file.attribute.PosixFilePermissions.fromString("rw-------")); }
-            catch (UnsupportedOperationException ignored) { }
-            Files.writeString(temporary, gson.toJson(credential), StandardCharsets.UTF_8);
-            Files.move(temporary, savedCredential, StandardCopyOption.REPLACE_EXISTING);
+            directory.createDirectories();
+            temporary = directory.createTempFile("pairing-", ".tmp");
+            temporary.write(gson.toJson(credential));
+            temporary.moveTo(savedCredential, StandardCopyOption.REPLACE_EXISTING);
         }
-        catch (Exception ignored)
+        catch (Exception ignored) { }
+        finally
         {
-            try { Files.deleteIfExists(temporary); } catch (Exception cleanupIgnored) { }
+            if (temporary != null)
+            {
+                try { temporary.deleteIfExists(); } catch (Exception ignored) { }
+            }
         }
     }
 

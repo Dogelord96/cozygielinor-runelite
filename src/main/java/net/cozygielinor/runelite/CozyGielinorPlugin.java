@@ -21,7 +21,7 @@ import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 
-@PluginDescriptor(name = "CozyGielinor", description = "CozyGielinor clan panel")
+@PluginDescriptor(name = "CozyGielinor", internalName = "cozygielinor", description = "CozyGielinor clan panel")
 public class CozyGielinorPlugin extends Plugin
 {
     @Inject
@@ -52,9 +52,9 @@ public class CozyGielinorPlugin extends Plugin
     private String displayedRelayStatus;
 
     @Override
-    protected void startUp()
+    protected void startUp() throws Exception
     {
-        PortalPairing pairing = new PortalPairing(http, gson);
+        PortalPairing pairing = new PortalPairing(http, gson, getPluginDirectory());
         progressSync = new ProgressSync(http, pairing);
         clanRelay = new ClanRelay(client, clientThread, gson, http, pairing, false);
         leadershipRelay = new ClanRelay(client, clientThread, gson, http, pairing, true);

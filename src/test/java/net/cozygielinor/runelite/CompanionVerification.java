@@ -32,7 +32,8 @@ public final class CompanionVerification
         try
         {
             BridgeHttp http = new BridgeHttp(client);
-            PortalPairing pairing = new PortalPairing(http, new Gson());
+            var directory = new VerificationPlugin().directory();
+            PortalPairing pairing = new PortalPairing(http, new Gson(), directory);
             pairing.disconnect();
             CountDownLatch exchanged = new CountDownLatch(1);
             pairing.exchange("abcdefghijklmnopqrstuvwxyz123456", "Topkerel", accepted ->
@@ -41,7 +42,7 @@ public final class CompanionVerification
                 exchanged.countDown();
             });
             require(exchanged.await(5, TimeUnit.SECONDS), "Pairing completed");
-            PortalPairing restored = new PortalPairing(http, new Gson());
+            PortalPairing restored = new PortalPairing(http, new Gson(), directory);
             require(restored.credentialFor("Topkerel") != null, "Pairing survives restart");
             require(restored.credentialFor("Another") == null, "Pairing belongs to one character");
             CozyGielinorPanel[] panel = new CozyGielinorPanel[1];
@@ -70,7 +71,7 @@ public final class CompanionVerification
                 require(restored.credentialFor("Topkerel") == null, "Clear revoked local credential");
                 panel[0].stop();
             });
-            require(new PortalPairing(http, new Gson()).credentialFor("Topkerel") == null, "Revoked credential removed from disk");
+            require(new PortalPairing(http, new Gson(), directory).credentialFor("Topkerel") == null, "Revoked credential removed from disk");
             System.out.println("Pairing persistence, character scope, leadership unlock and revocation passed.");
         }
         finally
@@ -78,6 +79,12 @@ public final class CompanionVerification
             client.dispatcher().executorService().shutdownNow();
             client.connectionPool().evictAll();
         }
+    }
+
+    @net.runelite.client.plugins.PluginDescriptor(name = "CozyGielinor verification", internalName = "cozygielinor-verification")
+    private static final class VerificationPlugin extends net.runelite.client.plugins.Plugin
+    {
+        net.runelite.client.util.Filepath directory() throws Exception { return getPluginDirectory(); }
     }
 
     private static Object field(Object target, String name)
